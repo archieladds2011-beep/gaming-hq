@@ -1,0 +1,876 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gaming HQ - Dead by Daylight</title>
+
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#101014;color:#eee;font-family:Arial,sans-serif}
+header{padding:22px;background:#191920;border-bottom:1px solid #333}
+.container{max-width:1150px;margin:auto;padding:20px}
+button,input,select{font:inherit}
+button{background:#292933;color:white;border:1px solid #444;padding:11px 15px;border-radius:8px;cursor:pointer}
+button:hover{background:#414151}
+button.active,.primary{background:#7135a7;border-color:#a66bdf}
+.tabs{display:flex;gap:9px;flex-wrap:wrap;margin:20px 0}
+input,select{background:#202029;color:white;border:1px solid #444;border-radius:8px;padding:12px;width:100%;margin:7px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:13px}
+.card,.panel,.build{background:#1b1b23;border:1px solid #34343e;border-radius:12px;padding:14px;margin:12px 0}
+.card{cursor:pointer}
+.card:hover{border-color:#a66bdf;transform:translateY(-2px)}
+.portrait{width:100%;height:155px;object-fit:cover;object-position:top;border-radius:9px;background:#292433}
+.profilePortrait{width:115px;height:145px;object-fit:cover;object-position:top;border-radius:10px}
+.profileHead{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.small{font-size:12px;color:#aaa}
+.hidden{display:none!important}
+.perks{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.slot{background:#24242e;border:1px solid #444;border-radius:9px;padding:10px;min-width:0}
+.slot label{font-size:12px;color:#aaa}
+.slot img{width:55px;height:55px;object-fit:contain;display:block;margin:7px auto}
+.statgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.stat{background:#22222c;padding:17px;border-radius:10px}
+.stat strong{font-size:26px;display:block;margin-top:8px}
+.build{background:#24242e}
+.actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+.danger{border-color:#a34c4c;color:#ffaaaa}
+.perkList{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.perkCard{background:#24242e;padding:12px;border-radius:9px;display:flex;gap:10px;align-items:flex-start}
+.perkCard img{width:55px;height:55px;object-fit:contain}
+.perkCard p{font-size:12px;color:#bbb;margin:5px 0}
+.status{padding:12px;background:#292433;border-radius:8px;color:#d9c6ee}
+a{color:#c99aff}
+.modal{background:#191920;border:1px solid #8d5db8;padding:18px;border-radius:12px;margin:15px 0}
+.perk-picker{margin-top:20px}
+.perk-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px;max-height:500px;overflow-y:auto;padding:5px}
+.perk-choice{background:#24242e;border:1px solid #444;border-radius:10px;padding:10px;display:flex;align-items:center;gap:10px;text-align:left;min-width:0}
+.perk-choice:hover{border-color:#a66bdf}
+.perk-choice img{width:58px;height:58px;object-fit:contain;flex-shrink:0}
+.perk-choice span{font-size:13px;overflow-wrap:anywhere}
+.perk-choice.selected{border-color:#a66bdf;background:#382747}
+.slot button{width:100%;margin-top:7px;padding:8px}
+.selected-perk{font-size:12px;color:#d9c6ee;text-align:center;min-height:30px}
+.filter-row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.filter-row button{flex:1;min-width:100px}
+.perk-description{font-size:12px;color:#bbb;line-height:1.4}
+.perk-choice img,.perkCard img{background:#17171e;border-radius:7px}
+@media(max-width:600px){
+ .perks{grid-template-columns:repeat(2,1fr)}
+ .statgrid{grid-template-columns:1fr}
+ .profilePortrait{width:85px;height:110px}
+}
+</style>
+</head>
+
+<body>
+<header>
+<h1>🎮 Dead by Daylight HQ</h1>
+<p>Your characters, builds and MMR tracker.</p>
+</header>
+
+<div class="container">
+
+<div class="tabs">
+<button id="killerTab" class="active" onclick="showTab('killers')">Killers</button>
+<button id="survivorTab" onclick="showTab('survivors')">Survivors</button>
+<button id="mmrTab" onclick="showTab('mmr')">MMR Tracker</button>
+<button onclick="location.href='index.html'">Gaming HQ</button>
+</div>
+
+<section id="killers">
+<h2>Killer Roster</h2>
+<input id="killerSearch" placeholder="Search killers..." oninput="renderRoster('killers')">
+<div id="killerGrid" class="grid"></div>
+</section>
+
+<section id="survivors" class="hidden">
+<h2>Survivor Roster</h2>
+<input id="survivorSearch" placeholder="Search survivors..." oninput="renderRoster('survivors')">
+<div id="survivorGrid" class="grid"></div>
+</section>
+
+<section id="profile" class="hidden">
+<button onclick="backToRoster()">← Back to roster</button>
+<div id="profileContent"></div>
+</section>
+
+<section id="mmr" class="hidden">
+<h2>MMR Tracker</h2>
+<p>Record your estimated MMR. The game does not provide a public exact MMR tracker.</p>
+
+<div class="statgrid">
+<div class="stat">
+Killer MMR
+<strong id="killerValue">Not set</strong>
+<input id="killerInput" type="number" placeholder="Enter Killer MMR">
+<button onclick="updateMMR('killer')">Save Killer MMR</button>
+</div>
+
+<div class="stat">
+Survivor MMR
+<strong id="survivorValue">Not set</strong>
+<input id="survivorInput" type="number" placeholder="Enter Survivor MMR">
+<button onclick="updateMMR('survivor')">Save Survivor MMR</button>
+</div>
+</div>
+
+<div class="panel">
+<h3>MMR History</h3>
+<div id="history">No ratings recorded yet.</div>
+</div>
+</section>
+
+</div>
+
+<script>
+const CHARACTER_API="https://dbd.source.gs/api/characters/";
+const SITE="https://dbd.source.gs";
+
+const PERK_APIS=[
+ "https://dennisreep.nl/dbd/api/v3/getSurvivorPerkData?description=true",
+ "https://dennisreep.nl/dbd/api/v3/getKillerPerkData?description=true"
+];
+
+let characters=[];
+let currentCharacter=null;
+let currentType="killers";
+let currentBuildId=null;
+let perks=[];
+let items=[];
+let offerings=[];
+let selectedPerkSlot=0;
+let editorPerks=["","","",""];
+let perkRoleFilter="all";
+let perksLoaded=false;
+let perkLoadError=false;
+
+function showTab(tab){
+ ["killers","survivors","profile","mmr"].forEach(id=>{
+  document.getElementById(id).classList.add("hidden");
+ });
+
+ document.getElementById(tab).classList.remove("hidden");
+
+ document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("active"));
+
+ if(tab==="killers")killerTab.classList.add("active");
+ if(tab==="survivors")survivorTab.classList.add("active");
+ if(tab==="mmr")mmrTab.classList.add("active");
+}
+
+function escapeHTML(value){
+ return String(value??"").replace(/[&<>"']/g,c=>({
+  "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+ }[c]));
+}
+
+function cleanDescription(value){
+ if(!value)return "";
+
+ const doc=new DOMParser().parseFromString(String(value),"text/html");
+
+ return (doc.body.textContent||"")
+  .replace(/\s+/g," ")
+  .trim();
+}
+
+async function loadCharacters(){
+ try{
+  const response=await fetch(CHARACTER_API);
+  if(!response.ok)throw new Error("Character database unavailable");
+
+  const data=await response.json();
+  characters=data.characters||[];
+
+  if(!characters.length)throw new Error("No characters returned");
+
+  renderRoster("killers");
+  renderRoster("survivors");
+
+ }catch(error){
+  killerGrid.innerHTML='<p class="status">Could not load characters. Check your connection and refresh.</p>';
+  survivorGrid.innerHTML='<p class="status">Could not load characters. Check your connection and refresh.</p>';
+ }
+}
+
+function renderRoster(type){
+ const role=type==="killers"?"killer":"survivor";
+ const search=document.getElementById(type==="killers"?"killerSearch":"survivorSearch").value.toLowerCase();
+ const grid=document.getElementById(type==="killers"?"killerGrid":"survivorGrid");
+
+ grid.innerHTML="";
+
+ const filtered=characters.filter(c=>
+  c.role===role&&String(c.name||"").toLowerCase().includes(search)
+ );
+
+ filtered.forEach(c=>{
+  const card=document.createElement("div");
+  card.className="card";
+
+  const img=document.createElement("img");
+  img.className="portrait";
+  img.src=c.image||c.portrait||c.icon||"";
+  img.alt=c.name;
+  img.loading="lazy";
+  img.onerror=()=>img.style.display="none";
+
+  const title=document.createElement("h3");
+  title.textContent=c.name;
+
+  const small=document.createElement("span");
+  small.className="small";
+  small.textContent="Click to view character";
+
+  card.append(img,title,small);
+  card.onclick=()=>openCharacter(c);
+  grid.appendChild(card);
+ });
+
+ if(!filtered.length)grid.innerHTML="<p>No characters found.</p>";
+}
+
+function openCharacter(character){
+ currentCharacter=character;
+ currentType=character.role==="killer"?"killers":"survivors";
+
+ showTab("profile");
+
+ const box=document.getElementById("profileContent");
+
+ box.innerHTML=`
+ <div class="profileHead">
+  <img class="profilePortrait" src="${escapeHTML(character.image||character.portrait||"")}" alt="${escapeHTML(character.name)}">
+  <div>
+   <h2>${escapeHTML(character.name)}</h2>
+   <p>${currentType==="killers"?"Killer":"Survivor"}</p>
+   <a href="${escapeHTML(character.url||SITE)}" target="_blank" rel="noopener">View full character information ↗</a>
+  </div>
+ </div>
+
+ <div class="panel">
+  <h3>Unique perks</h3>
+  <div id="uniquePerks" class="perkList">
+   <p class="status">Loading character perks...</p>
+  </div>
+ </div>
+
+ <div class="panel">
+  <h3>My builds</h3>
+  <button class="primary" onclick="openBuildEditor()">+ Create New Build</button>
+  <div id="savedBuilds"></div>
+ </div>`;
+
+ loadUniquePerks(character);
+ renderBuilds();
+}
+
+function loadUniquePerks(character){
+ const box=document.getElementById("uniquePerks");
+ if(!box)return;
+
+ const characterName=String(character.name||"").toLowerCase();
+
+ const matches=perks.filter(p=>{
+  if(!p.owner)return false;
+
+  const owner=p.owner.toLowerCase();
+
+  if(owner==="all"||owner==="general")return false;
+
+  return owner===characterName||
+   characterName.startsWith(owner+" ")||
+   owner.startsWith(characterName+" ");
+ });
+
+ box.innerHTML="";
+
+ if(!matches.length){
+  box.innerHTML=`<p class="status">No character-specific perks were matched. <a href="${escapeHTML(character.url||SITE)}" target="_blank" rel="noopener">View character information ↗</a></p>`;
+  return;
+ }
+
+ matches.slice(0,3).forEach(p=>{
+  const div=document.createElement("div");
+  div.className="perkCard";
+
+  if(p.image){
+   const img=document.createElement("img");
+   img.src=p.image;
+   img.alt=p.name;
+   img.onerror=()=>img.style.display="none";
+   div.appendChild(img);
+  }
+
+  const info=document.createElement("div");
+  const name=document.createElement("strong");
+  name.textContent=p.name;
+
+  const desc=document.createElement("p");
+  desc.textContent=p.description||"Description unavailable.";
+
+  info.append(name,desc);
+  div.appendChild(info);
+  box.appendChild(div);
+ });
+}
+
+function buildKey(){
+ return "dbdhq_builds_"+currentType+"_"+(currentCharacter?.id||currentCharacter?.name||"unknown");
+}
+
+function getBuilds(){
+ try{return JSON.parse(localStorage.getItem(buildKey())||"[]")}
+ catch{return []}
+}
+
+function setBuilds(data){
+ localStorage.setItem(buildKey(),JSON.stringify(data));
+}
+
+function openBuildEditor(buildId=null){
+ currentBuildId=buildId;
+
+ const existing=buildId?getBuilds().find(b=>b.id===buildId):null;
+
+ const data=existing||{
+  id:Date.now(),
+  name:"",
+  perks:["","","",""],
+  item:"",
+  addon1:"",
+  addon2:"",
+  offering:""
+ };
+
+ editorPerks=[...data.perks];
+ selectedPerkSlot=0;
+ perkRoleFilter="all";
+
+ const box=document.getElementById("profileContent");
+ let editor=document.getElementById("buildEditor");
+
+ if(!editor){
+  editor=document.createElement("div");
+  editor.id="buildEditor";
+  editor.className="modal";
+  box.appendChild(editor);
+ }
+
+ editor.classList.remove("hidden");
+
+ editor.innerHTML=`
+ <h2>${existing?"Edit Build":"Create New Build"}</h2>
+
+ <label>Build name</label>
+ <input id="buildName" placeholder="e.g. Chase build">
+
+ <h3>Choose your four perks</h3>
+ <p class="small">Select a slot below, then choose a perk from the gallery.</p>
+
+ <div class="perks" id="perkSlots"></div>
+
+ <div class="perk-picker">
+  <h3>Perk library</h3>
+
+  <input id="perkSearch" placeholder="🔎 Search perks by name, description or character..." oninput="renderPerkGallery()">
+
+  <div class="filter-row">
+   <button id="filterAll" class="active" onclick="setPerkFilter('all')">All perks</button>
+   <button id="filterKiller" onclick="setPerkFilter('killer')">Killer perks</button>
+   <button id="filterSurvivor" onclick="setPerkFilter('survivor')">Survivor perks</button>
+  </div>
+
+  <div id="perkGallery" class="perk-gallery">
+   <p class="status">Loading perks...</p>
+  </div>
+ </div>
+
+ <div id="extraSlots"></div>
+
+ <div class="actions">
+  <button class="primary" onclick="saveEditorBuild()">Save Build</button>
+  <button onclick="closeEditor()">Cancel</button>
+ </div>
+
+ <p class="small">Your build is saved in this browser.</p>
+ `;
+
+ document.getElementById("buildName").value=data.name;
+
+ const slots=document.getElementById("perkSlots");
+
+ for(let i=0;i<4;i++){
+  const wrap=document.createElement("div");
+  wrap.className="slot";
+
+  const label=document.createElement("label");
+  label.textContent="Perk "+(i+1);
+
+  const button=document.createElement("button");
+  button.onclick=()=>{
+   selectedPerkSlot=i;
+   renderPerkSlots();
+   renderPerkGallery();
+  };
+
+  const selected=document.createElement("div");
+  selected.className="selected-perk";
+  selected.id="selectedPerk"+i;
+
+  const clear=document.createElement("button");
+  clear.textContent="Clear";
+  clear.onclick=()=>{
+   editorPerks[i]="";
+   renderPerkSlots();
+   renderPerkGallery();
+  };
+
+  wrap.append(label,button,selected,clear);
+  slots.appendChild(wrap);
+ }
+
+ renderPerkSlots();
+ renderPerkGallery();
+
+ if(currentType==="survivors"){
+  addEditorSelect("Item","item",items,data.item);
+  addEditorSelect("Item add-on 1","addon1",items,data.addon1);
+  addEditorSelect("Item add-on 2","addon2",items,data.addon2);
+ }else{
+  addEditorSelect("Killer add-on 1","addon1",items,data.addon1);
+  addEditorSelect("Killer add-on 2","addon2",items,data.addon2);
+ }
+
+ addEditorSelect("Offering","offering",offerings,data.offering);
+
+ ["item","addon1","addon2","offering"].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el)el.value=data[id]||"";
+ });
+}
+
+function renderPerkSlots(){
+ for(let i=0;i<4;i++){
+  const slot=document.getElementById("selectedPerk"+i);
+  if(!slot)continue;
+
+  slot.textContent=editorPerks[i]||"Empty";
+
+  const button=slot.parentElement.querySelector("button");
+  button.textContent=selectedPerkSlot===i?"✓ Selecting this slot":"Select slot";
+  button.classList.toggle("active",selectedPerkSlot===i);
+ }
+}
+
+function setPerkFilter(filter){
+ perkRoleFilter=filter;
+
+ document.getElementById("filterAll").classList.toggle("active",filter==="all");
+ document.getElementById("filterKiller").classList.toggle("active",filter==="killer");
+ document.getElementById("filterSurvivor").classList.toggle("active",filter==="survivor");
+
+ renderPerkGallery();
+}
+
+function renderPerkGallery(){
+ const gallery=document.getElementById("perkGallery");
+ if(!gallery)return;
+
+ const search=(document.getElementById("perkSearch")?.value||"").toLowerCase();
+
+ gallery.innerHTML="";
+
+ if(!perksLoaded&&perks.length===0){
+  gallery.innerHTML='<p class="status">Loading the perk database...</p>';
+  return;
+ }
+
+ const filtered=perks.filter(p=>{
+  const searchable=(p.name+" "+p.description+" "+p.owner).toLowerCase();
+  const matchesSearch=searchable.includes(search);
+  const matchesRole=perkRoleFilter==="all"||p.role===perkRoleFilter;
+  return matchesSearch&&matchesRole;
+ });
+
+ if(!filtered.length){
+  gallery.innerHTML=perkLoadError?
+   '<p class="status">The perk database could not be loaded. Refresh the page and try again.</p>':
+   '<p class="status">No perks found. Try another search.</p>';
+  return;
+ }
+
+ filtered.forEach(perk=>{
+  const button=document.createElement("button");
+  button.className="perk-choice";
+
+  if(editorPerks.includes(perk.name))button.classList.add("selected");
+
+  if(perk.image){
+   const img=document.createElement("img");
+   img.src=perk.image;
+   img.alt=perk.name;
+   img.loading="lazy";
+   img.onerror=()=>img.style.display="none";
+   button.appendChild(img);
+  }
+
+  const info=document.createElement("div");
+
+  const name=document.createElement("span");
+  name.textContent=perk.name;
+  name.style.fontWeight="bold";
+
+  const description=document.createElement("div");
+  description.className="perk-description";
+  description.textContent=perk.description||"Description unavailable.";
+
+  info.append(name,description);
+  button.appendChild(info);
+
+  button.onclick=()=>{
+   if(editorPerks.some((p,i)=>p===perk.name&&i!==selectedPerkSlot)){
+    alert("You already have that perk in this build.");
+    return;
+   }
+
+   editorPerks[selectedPerkSlot]=perk.name;
+
+   renderPerkSlots();
+   renderPerkGallery();
+  };
+
+  gallery.appendChild(button);
+ });
+}
+
+function addEditorSelect(label,id,options,value){
+ const parent=document.getElementById("extraSlots");
+ const wrap=document.createElement("div");
+
+ const title=document.createElement("label");
+ title.textContent=label;
+
+ const select=document.createElement("select");
+ select.id=id;
+ select.appendChild(new Option("Choose "+label.toLowerCase(),""));
+
+ options.forEach(o=>select.appendChild(new Option(o.name,o.name)));
+
+ select.value=value||"";
+
+ wrap.append(title,select);
+ parent.appendChild(wrap);
+}
+
+function saveEditorBuild(){
+ const name=document.getElementById("buildName").value.trim();
+
+ if(!name){
+  alert("Give your build a name first.");
+  return;
+ }
+
+ if(new Set(editorPerks.filter(Boolean)).size!==editorPerks.filter(Boolean).length){
+  alert("You cannot use the same perk twice.");
+  return;
+ }
+
+ const data=getBuilds();
+
+ const build={
+  id:currentBuildId||Date.now(),
+  name,
+  perks:[...editorPerks],
+  item:document.getElementById("item")?.value||"",
+  addon1:document.getElementById("addon1")?.value||"",
+  addon2:document.getElementById("addon2")?.value||"",
+  offering:document.getElementById("offering")?.value||""
+ };
+
+ const index=data.findIndex(b=>b.id===build.id);
+
+ if(index>=0)data[index]=build;
+ else data.push(build);
+
+ setBuilds(data);
+ closeEditor();
+ renderBuilds();
+}
+
+function closeEditor(){
+ const editor=document.getElementById("buildEditor");
+ if(editor)editor.classList.add("hidden");
+}
+
+function renderBuilds(){
+ const box=document.getElementById("savedBuilds");
+ if(!box)return;
+
+ box.innerHTML="";
+
+ const data=getBuilds();
+
+ if(!data.length){
+  box.innerHTML="<p>No saved builds yet. Press Create New Build to start.</p>";
+  return;
+ }
+
+ data.forEach(build=>{
+  const div=document.createElement("div");
+  div.className="build";
+
+  const title=document.createElement("h3");
+  title.textContent=build.name;
+
+  const perkContainer=document.createElement("div");
+  perkContainer.className="perkList";
+
+  (build.perks||[]).forEach(perkName=>{
+   if(!perkName)return;
+
+   const perk=perks.find(p=>p.name===perkName);
+   const card=document.createElement("div");
+   card.className="perkCard";
+
+   if(perk?.image){
+    const img=document.createElement("img");
+    img.src=perk.image;
+    img.alt=perkName;
+    card.appendChild(img);
+   }
+
+   const name=document.createElement("strong");
+   name.textContent=perkName;
+   card.appendChild(name);
+   perkContainer.appendChild(card);
+  });
+
+  const details=document.createElement("p");
+  details.textContent="Perks: "+((build.perks||[]).filter(Boolean).join(", ")||"None selected");
+
+  const item=document.createElement("p");
+  item.textContent="Item: "+(build.item||"None");
+
+  const addons=document.createElement("p");
+  addons.textContent="Add-ons: "+[build.addon1,build.addon2].filter(Boolean).join(", ");
+
+  const offering=document.createElement("p");
+  offering.textContent="Offering: "+(build.offering||"None");
+
+  const actions=document.createElement("div");
+  actions.className="actions";
+
+  const edit=document.createElement("button");
+  edit.textContent="Edit";
+  edit.onclick=()=>openBuildEditor(build.id);
+
+  const del=document.createElement("button");
+  del.textContent="Delete";
+  del.className="danger";
+
+  del.onclick=()=>{
+   if(confirm("Delete this build?")){
+    setBuilds(getBuilds().filter(b=>b.id!==build.id));
+    renderBuilds();
+   }
+  };
+
+  actions.append(edit,del);
+  div.append(title,perkContainer,details);
+
+  if(currentType==="survivors")div.appendChild(item);
+
+  div.append(addons,offering,actions);
+  box.appendChild(div);
+ });
+}
+
+function backToRoster(){
+ showTab(currentType);
+}
+
+function updateMMR(type){
+ const value=document.getElementById(type+"Input").value;
+ if(value==="")return;
+
+ localStorage.setItem(type+"MMR",value);
+
+ const history=JSON.parse(localStorage.getItem("mmrHistory")||"[]");
+ history.unshift({type,value,date:new Date().toLocaleDateString()});
+
+ localStorage.setItem("mmrHistory",JSON.stringify(history));
+ loadMMR();
+}
+
+function loadMMR(){
+ ["killer","survivor"].forEach(type=>{
+  document.getElementById(type+"Value").textContent=
+   localStorage.getItem(type+"MMR")||"Not set";
+ });
+
+ const history=JSON.parse(localStorage.getItem("mmrHistory")||"[]");
+
+ document.getElementById("history").innerHTML=history.length?
+  history.map(x=>`<p>${escapeHTML(x.date)} — ${escapeHTML(x.type)} MMR: ${escapeHTML(x.value)}</p>`).join(""):
+  "No ratings recorded yet.";
+}
+
+/* FIXED PERK DATABASE HANDLING */
+
+function findArray(data){
+ if(Array.isArray(data))return data;
+
+ if(data&&typeof data==="object"){
+  const possibleKeys=[
+   "Perks","perks","data","results","items",
+   "survivorPerks","killerPerks"
+  ];
+
+  for(const key of possibleKeys){
+   if(Array.isArray(data[key]))return data[key];
+  }
+
+  // Some perk APIs return an object keyed by perk ID.
+  const values=Object.values(data);
+
+  if(values.length&&values.every(v=>v&&typeof v==="object")){
+   const perkObjects=values.filter(v=>
+    v.PerkName||v.name||v.perkName||v.displayName
+   );
+
+   if(perkObjects.length)return perkObjects;
+  }
+ }
+
+ return [];
+}
+
+function normalisePerk(p,role){
+ return {
+  name:p.PerkName||p.name||p.perkName||p.displayName||p.title||"",
+  role:String(p.role||role).toLowerCase(),
+  image:p.Image||p.image||p.iconURL||p.iconUrl||p.icon||p.url||p.img||"",
+  description:cleanDescription(
+   p.Description||p.description||p.desc||p.contentText||p.content||""
+  ),
+  owner:p.Survivor||p.Killer||p.characterName||p.owner||p.survivorName||p.killerName||""
+ };
+}
+
+async function loadPerks(){
+ const results=await Promise.allSettled(
+  PERK_APIS.map(url=>fetch(url).then(r=>{
+   if(!r.ok)throw new Error("Perk API unavailable");
+   return r.json();
+  }))
+ );
+
+ const loaded=[];
+
+ results.forEach((result,index)=>{
+  if(result.status!=="fulfilled"){
+   console.warn("Could not load perk source:",result.reason);
+   return;
+  }
+
+  const role=index===0?"survivor":"killer";
+  const list=findArray(result.value);
+
+  list.forEach(raw=>{
+   const perk=normalisePerk(raw,role);
+
+   if(perk.name){
+    perk.role=role;
+    loaded.push(perk);
+   }
+  });
+ });
+
+ const unique=new Map();
+
+ loaded.forEach(p=>{
+  const key=p.name.toLowerCase();
+
+  if(!unique.has(key))unique.set(key,p);
+ });
+
+ perks=[...unique.values()].sort((a,b)=>a.name.localeCompare(b.name));
+
+ perksLoaded=true;
+ perkLoadError=perks.length===0;
+
+ console.log("DBD perks loaded:",perks.length);
+
+ // Refresh anything already open after the data arrives.
+ if(document.getElementById("perkGallery")){
+  renderPerkGallery();
+ }
+
+ if(currentCharacter){
+  loadUniquePerks(currentCharacter);
+ }
+
+ if(document.getElementById("savedBuilds")){
+  renderBuilds();
+ }
+}
+
+async function loadOldCatalog(){
+ try{
+  const response=await fetch(SITE+"/items/");
+  if(!response.ok)throw new Error();
+
+  const html=await response.text();
+  const doc=new DOMParser().parseFromString(html,"text/html");
+  items=extractOptions(doc,"/items/");
+ }catch(error){
+  items=[];
+ }
+
+ try{
+  const response=await fetch(SITE+"/offerings/");
+  if(!response.ok)throw new Error();
+
+  const html=await response.text();
+  const doc=new DOMParser().parseFromString(html,"text/html");
+  offerings=extractOptions(doc,"/offerings/");
+ }catch(error){
+  offerings=[];
+ }
+}
+
+function extractOptions(doc,path){
+ const found=[];
+
+ [...doc.querySelectorAll("a[href]")].forEach(a=>{
+  const href=a.getAttribute("href")||"";
+  if(!href.includes(path))return;
+
+  const name=a.innerText.replace(/\s+/g," ").trim()
+   .split(/Common|Uncommon|Rare|Very Rare|Ultra Rare/)[0].trim();
+
+  if(name&&name.length<85&&!found.some(x=>x.name===name)){
+   found.push({name});
+  }
+ });
+
+ return found;
+}
+
+async function start(){
+ loadMMR();
+
+ await Promise.all([
+  loadCharacters(),
+  loadPerks(),
+  loadOldCatalog()
+ ]);
+}
+
+start();
+</script>
+</body>
+</html>

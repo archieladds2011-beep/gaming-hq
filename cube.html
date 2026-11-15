@@ -1,0 +1,574 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gaming HQ - Cubing</title>
+
+<script type="module">
+import "https://cdn.cubing.net/v0/js/cubing/twisty";
+</script>
+
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:20px;background:#101014;color:#eee;font-family:Arial,sans-serif}
+.container{max-width:1000px;margin:auto}
+header{text-align:center;margin-bottom:25px}
+h1,h2{color:#00e5ff}
+.panel{background:#1b1b22;border:1px solid #333;border-radius:12px;padding:18px;margin-bottom:20px}
+button{background:#00cfe8;color:#111;border:0;border-radius:7px;padding:10px 14px;font-weight:bold;cursor:pointer;margin:4px}
+button:hover{opacity:.8}
+button.delete{background:#e74c3c;color:white}
+button.secondary{background:#333;color:white}
+#timer{font-size:65px;text-align:center;font-weight:bold;margin:20px}
+#status{text-align:center;color:#aaa;margin-bottom:15px}
+#scramble,#setup{font-size:20px;text-align:center;line-height:1.8;overflow-wrap:anywhere;min-height:50px}
+#cube{width:150px;height:150px;margin:30px auto;position:relative;transform-style:preserve-3d;transform:rotateX(-25deg) rotateY(-35deg);touch-action:none}
+.face{position:absolute;width:150px;height:150px;border:3px solid #111;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:3px;padding:3px;background:#111}
+.face div{border-radius:4px}
+.front{transform:translateZ(75px)}
+.back{transform:rotateY(180deg) translateZ(75px)}
+.right{transform:rotateY(90deg) translateZ(75px)}
+.left{transform:rotateY(-90deg) translateZ(75px)}
+.top{transform:rotateX(90deg) translateZ(75px)}
+.bottom{transform:rotateX(-90deg) translateZ(75px)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px}
+.stat{background:#25252e;padding:12px;border-radius:8px;text-align:center}
+.stat strong{display:block;font-size:21px;color:#00e5ff;margin-top:7px}
+.solve{display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid #333}
+.solve strong{margin-left:auto}
+.controls{text-align:center}
+small{color:#aaa}
+.case-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.case{background:#25252e;padding:9px;border-radius:8px;display:grid;grid-template-columns:20px 1fr 95px;align-items:center;gap:7px;font-size:14px;min-height:105px}
+.case input{accent-color:#00e5ff;width:17px;height:17px}
+.case-diagram{width:95px;height:90px;display:flex;align-items:center;justify-content:center}
+.case-diagram twisty-player{width:95px;height:90px;pointer-events:none;background:transparent}
+#trainerResult{background:#25252e;padding:15px;border-radius:9px;margin-top:15px}
+#algorithm{line-height:1.8;overflow-wrap:anywhere}
+#trainerDiagram{display:flex;justify-content:center;margin:10px auto;min-height:10px}
+#trainerDiagram twisty-player{width:230px;height:190px;background:transparent}
+select{background:#25252e;color:white;border:1px solid #555;border-radius:6px;padding:10px}
+@media(max-width:500px){
+ body{padding:10px}
+ #timer{font-size:50px}
+ .panel{padding:12px}
+ .case-grid{grid-template-columns:repeat(auto-fit,minmax(155px,1fr))}
+ .case{grid-template-columns:20px 1fr 80px}
+ .case-diagram,.case-diagram twisty-player{width:80px;height:80px}
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+<header>
+<h1>🧩 Cubing HQ</h1>
+<p>Your personal speedcubing dashboard</p>
+</header>
+
+<div class="panel">
+<h2>3D Cube</h2>
+<div id="cube">
+<div class="face front"></div><div class="face back"></div>
+<div class="face right"></div><div class="face left"></div>
+<div class="face top"></div><div class="face bottom"></div>
+</div>
+<small>Drag the cube to rotate it.</small>
+</div>
+
+<div class="panel">
+<h2>Scramble</h2>
+<div id="scramble">Press New Scramble</div>
+<div class="controls">
+<button onclick="newScramble()">New Scramble</button>
+<button onclick="copyScramble()">Copy Scramble</button>
+</div>
+</div>
+
+<div class="panel">
+<h2>Timer</h2>
+<div id="status">Ready — press Space to inspect</div>
+<div id="timer">0.00</div>
+<div class="controls">
+<button onclick="startInspection()">Inspection</button>
+<button onclick="startSolve()">Start Solve</button>
+<button onclick="stopSolve()">Stop Solve</button>
+<button onclick="resetTimer()">Reset</button>
+<p>Penalty:</p>
+<button onclick="setPenalty('')">None</button>
+<button onclick="setPenalty('+2')">+2</button>
+<button onclick="setPenalty('DNF')">DNF</button>
+<p><small>Space: inspection → solve → stop</small></p>
+</div>
+</div>
+
+<div class="panel">
+<h2>Statistics</h2>
+<div class="stats">
+<div class="stat">Best single<strong id="single">--</strong></div>
+<div class="stat">Ao5<strong id="ao5">--</strong></div>
+<div class="stat">Ao12<strong id="ao12">--</strong></div>
+<div class="stat">Ao50<strong id="ao50">--</strong></div>
+<div class="stat">Ao100<strong id="ao100">--</strong></div>
+</div>
+</div>
+
+<div class="panel">
+<h2>Solve History</h2>
+<div id="solveList">No solves yet.</div>
+<button class="delete" onclick="clearSolves()">Delete All Solves</button>
+</div>
+
+<div class="panel">
+<h2>🧠 Algorithm Trainer</h2>
+<p>Choose which type of algorithm you want to practise.</p>
+<div class="controls">
+<select id="trainerType" onchange="changeTrainerType()">
+<option value="PLL">PLL Trainer</option>
+<option value="OLL">OLL Trainer</option>
+</select>
+<button onclick="newCase()">New Case</button>
+</div>
+<div id="trainerResult">
+<p id="trainerMessage">Choose a trainer and press New Case.</p>
+<div id="setup"></div>
+<div id="trainerDiagram"></div>
+<div class="controls">
+<button onclick="copySetup()">Copy Setup</button>
+<button class="secondary" onclick="revealAlgorithm()">Reveal Case & Algorithm</button>
+</div>
+<div id="algorithm"></div>
+</div>
+<p><small>The diagram is generated from the inverse of the selected algorithm. Start with a solved cube and follow the setup moves.</small></p>
+</div>
+
+<div class="panel">
+<h2>PLL Checklist</h2>
+<p id="pllCount">0 / 21 known</p>
+<div id="pllList" class="case-grid"></div>
+</div>
+
+<div class="panel">
+<h2>OLL Checklist</h2>
+<p id="ollCount">0 / 57 known</p>
+<div id="ollList" class="case-grid"></div>
+</div>
+</div>
+
+<script>
+/* TIMER AND SOLVE HISTORY */
+let solves=JSON.parse(localStorage.getItem("cubeSolves")||"[]");
+let state="ready",startTime=0,inspectionStart=0;
+let inspectionInterval=null,timerInterval=null,penalty="";
+let scramble="",currentCase=null;
+
+function fmt(n){return Number(n).toFixed(2)}
+function result(s){return s.time+(s.penalty==="+2"?2:0)}
+function save(){localStorage.setItem("cubeSolves",JSON.stringify(solves))}
+
+const timer=document.getElementById("timer");
+const statusText=document.getElementById("status");
+
+function setPenalty(p){
+ penalty=p;
+ statusText.textContent="Penalty selected: "+(p||"None");
+}
+
+function startInspection(){
+ if(state!=="ready")return;
+ state="inspection";
+ inspectionStart=Date.now();
+ statusText.textContent="Inspection: 15 seconds";
+ clearInterval(inspectionInterval);
+ inspectionInterval=setInterval(()=>{
+  let elapsed=(Date.now()-inspectionStart)/1000;
+  let remaining=15-elapsed;
+  timer.textContent=fmt(Math.max(0,remaining));
+  if(remaining<=2&&remaining>0)statusText.textContent="⚠️ "+fmt(remaining)+" seconds left!";
+  if(remaining<=0)statusText.textContent="Inspection time exceeded!";
+ },30);
+}
+
+function startSolve(){
+ if(state!=="ready"&&state!=="inspection")return;
+ if(state==="inspection"){
+  let elapsed=(Date.now()-inspectionStart)/1000;
+  if(elapsed>17)penalty="DNF";
+  else if(elapsed>15)penalty="+2";
+ }
+ clearInterval(inspectionInterval);
+ state="solving";
+ startTime=Date.now();
+ statusText.textContent="Solving...";
+ timerInterval=setInterval(()=>timer.textContent=fmt((Date.now()-startTime)/1000),20);
+}
+
+function stopSolve(){
+ if(state!=="solving")return;
+ clearInterval(timerInterval);
+ let time=(Date.now()-startTime)/1000;
+ solves.unshift({time,penalty});
+ save();
+ state="ready";
+ timer.textContent=fmt(time+(penalty==="+2"?2:0))+(penalty==="DNF"?" DNF":"");
+ statusText.textContent="Solve saved!";
+ penalty="";
+ updateStats();
+}
+
+function resetTimer(){
+ clearInterval(timerInterval);
+ clearInterval(inspectionInterval);
+ state="ready";
+ penalty="";
+ timer.textContent="0.00";
+ statusText.textContent="Ready — press Space to inspect";
+}
+
+function average(count){
+ if(solves.length<count)return "--";
+ let times=solves.slice(0,count).map(s=>s.penalty==="DNF"?Infinity:result(s));
+ times.sort((a,b)=>a-b);
+ times=times.slice(1,-1);
+ if(times.includes(Infinity))return "DNF";
+ return fmt(times.reduce((a,b)=>a+b,0)/times.length);
+}
+
+function updateStats(){
+ let valid=solves.filter(s=>s.penalty!=="DNF").map(result);
+ document.getElementById("single").textContent=valid.length?fmt(Math.min(...valid)):"--";
+ document.getElementById("ao5").textContent=average(5);
+ document.getElementById("ao12").textContent=average(12);
+ document.getElementById("ao50").textContent=average(50);
+ document.getElementById("ao100").textContent=average(100);
+
+ let list=document.getElementById("solveList");
+ list.innerHTML="";
+ if(!solves.length){list.textContent="No solves yet.";return}
+
+ solves.forEach((s,i)=>{
+  let row=document.createElement("div");
+  row.className="solve";
+  let label=document.createElement("span");
+  label.textContent="#"+(solves.length-i);
+  let time=document.createElement("strong");
+  time.textContent=s.penalty==="DNF"?"DNF":fmt(result(s))+"s"+(s.penalty==="+2"?" (+2)":"");
+  let del=document.createElement("button");
+  del.className="delete";
+  del.textContent="Delete";
+  del.onclick=()=>{
+   if(confirm("Delete this solve?")){
+    solves.splice(i,1);
+    save();
+    updateStats();
+   }
+  };
+  row.append(label,time,del);
+  list.appendChild(row);
+ });
+}
+
+function clearSolves(){
+ if(!confirm("Delete ALL solves?"))return;
+ solves=[];
+ save();
+ updateStats();
+}
+
+/* RANDOM SCRAMBLE */
+const moves=["R","L","U","D","F","B"],turns=["","'","2"];
+
+function newScramble(){
+ let result=[],last="";
+ for(let i=0;i<20;i++){
+  let move;
+  do{move=moves[Math.floor(Math.random()*6)]}while(move===last);
+  last=move;
+  result.push(move+turns[Math.floor(Math.random()*3)]);
+ }
+ scramble=result.join(" ");
+ document.getElementById("scramble").textContent=scramble;
+}
+
+function copyScramble(){
+ if(!scramble)return;
+ navigator.clipboard.writeText(scramble).then(()=>statusText.textContent="Scramble copied!");
+}
+
+/* PLL ALGORITHMS */
+const PLL=[
+["Aa","x R' U R' D2 R U' R' D2 R2 x'"],
+["Ab","x R2 D2 R U R' D2 R U' R x'"],
+["E","x' R U' R' D R U R' D' R U R' D R U' R' D' x"],
+["F","R' U' F' R U R' U' R' F R2 U' R' U' R U R' F'"],
+["Ga","R2 U R' U R' U' R U' R2 U' D R' U R D'"],
+["Gb","R' U' R U D' R2 U R' U R U' R U' R2 D"],
+["Gc","R2 U' R U' R U R' U R2 U D' R U' R' D"],
+["Gd","R U R' U' D R2 U' R U' R' U R' U R2 D'"],
+["H","M2 U M2 U2 M2 U M2"],
+["Ja","x R2 F R F' R U2 r' U r U2 x'"],
+["Jb","R U R' F' R U R' U' R' F R2 U' R'"],
+["Na","R U R' U R U R' F' R U R' U' R' F R2 U' R' U2 R U' R'"],
+["Nb","R' U R U' R' F' U' F R U R' F R' F' R U' R"],
+["Ra","R U' R' U' R U R D R' U' R D' R' U2 R'"],
+["Rb","R' U2 R U2 R' F R U R' U' R' F' R2"],
+["T","R U R' U' R' F R2 U' R' U' R U R' F'"],
+["Ua","M2 U M U2 M' U M2"],
+["Ub","M2 U' M U2 M' U' M2"],
+["V","R' U R' U' y R' F' R2 U' R' U R' F R F"],
+["Y","F R U' R' U' R U R' F' R U R' U' R' F R F'"],
+["Z","M' U M2 U M2 U M' U2 M2"]
+];
+
+/* OLL ALGORITHMS */
+const OLL=[
+["OLL 1","R U2 R2 F R F' U2 R' F R F'"],
+["OLL 2","r U r' U2 r U2 R' U2 R U' r'"],
+["OLL 3","r' R2 U R' U' R U2 r' U M'"],
+["OLL 4","M U' r U2 r' U' R U' R' M'"],
+["OLL 5","r' U2 R U R' U r"],
+["OLL 6","r U2 R' U' R U' r'"],
+["OLL 7","r U R' U' R U2 r'"],
+["OLL 8","l' U' L U' L' U2 l"],
+["OLL 9","R U R' U' R' F R2 U R' U' F'"],
+["OLL 10","R U R' U R' F R F' R U2 R'"],
+["OLL 11","r' R2 U R' U R U2 R' U M'"],
+["OLL 12","M' R' U' R U' R' U2 R U' M"],
+["OLL 13","F U R U' R2 F' R U R U' R'"],
+["OLL 14","R' F R U R' F' R F U' F'"],
+["OLL 15","r' U' r R' U' R U r' U r"],
+["OLL 16","r U r' R U R' U' r U' r'"],
+["OLL 17","R U R' U R' F R F' U2 R' F R F'"],
+["OLL 18","R U2 R2 F R F' U2 M' U R U' r'"],
+["OLL 19","M U R U R' U' M' R' F R F'"],
+["OLL 20","M U R U R' U' M2 U R U' r'"],
+["OLL 21","R U2 R' U' R U R' U' R U' R'"],
+["OLL 22","R U2 R2 U' R2 U' R2 U2 R"],
+["OLL 23","R2 D R' U2 R D' R' U2 R'"],
+["OLL 24","r U R' U' r' F R F'"],
+["OLL 25","F' r U R' U' r' F R"],
+["OLL 26","R U2 R' U' R U' R'"],
+["OLL 27","R U R' U R U2 R'"],
+["OLL 28","r U R' U' M U R U' R'"],
+["OLL 29","M U R U R' U' R' F R F' M'"],
+["OLL 30","F U R U2 R' U' R U2 R' U' F'"],
+["OLL 31","R' U' F U R U' R' F' R"],
+["OLL 32","R U B' U' R' U R B R'"],
+["OLL 33","R U R' U' R' F R F'"],
+["OLL 34","R U R2 U' R' F R U R U' F'"],
+["OLL 35","R U2 R2 F R F' R U2 R'"],
+["OLL 36","L' U' L U' L' U L U L F' L' F"],
+["OLL 37","F R' F' F R U R U' R'"],
+["OLL 38","R U R' U R U' R' U' R' F R F'"],
+["OLL 39","L F' L' U' L U F U' L'"],
+["OLL 40","R' F R U R' U' F' U R"],
+["OLL 41","R U R' U R U2 R' F R U R' U' R' U' R U' R' U2 R F R U R' F'"],
+["OLL 42","R' U' R U' R' U2 R F R U R' U' F'"],
+["OLL 43","F' U' L' U L F"],
+["OLL 44","F U R U' R' F'"],
+["OLL 45","F R U R' U' F'"],
+["OLL 46","R' U' R' F R F' U R"],
+["OLL 47","R' U' R' F R F' R' F R F' U R"],
+["OLL 48","F R U R' U' R U R' U' F'"],
+["OLL 49","r U' r2 U r2 U r2 U' r"],
+["OLL 50","r' U r2 U' r2 U' r2 U r'"],
+["OLL 51","F U R U' R' U R U' R' F'"],
+["OLL 52","R U R' U R U' B U' B' R'"],
+["OLL 53","l' U2 L U L' U' L U L' U l"],
+["OLL 54","r U2 R' U' R U R' U' R U' r'"],
+["OLL 55","R U2 R2 U' R U' R' U2 F R F'"],
+["OLL 56","r U r' U R U' R' U R U' R' r U' r'"],
+["OLL 57","R U R' U' M' U R U' r'"]
+];
+
+/* CHECKLIST STORAGE */
+let known;
+try{
+ known=JSON.parse(localStorage.getItem("knownAlgorithms")||'{"PLL":[],"OLL":[]}');
+ if(!Array.isArray(known.PLL))known.PLL=[];
+ if(!Array.isArray(known.OLL))known.OLL=[];
+}catch(e){
+ known={PLL:[],OLL:[]};
+}
+
+function saveKnown(){
+ localStorage.setItem("knownAlgorithms",JSON.stringify(known));
+ updateCounts();
+}
+
+/* REVERSE AN ALGORITHM */
+function invertAlgorithm(alg){
+ return alg.trim().split(/\s+/).reverse().map(move=>{
+  if(move.endsWith("2"))return move;
+  if(move.endsWith("'"))return move.slice(0,-1);
+  return move+"'";
+ }).join(" ");
+}
+
+/* 3D CASE DIAGRAMS */
+function createCaseDiagram(type,alg,large=false){
+ let holder=document.createElement("div");
+ holder.className="case-diagram";
+
+ let player=document.createElement("twisty-player");
+ player.setAttribute("puzzle","3x3x3");
+ player.setAttribute("experimental-setup-alg",invertAlgorithm(alg));
+ player.setAttribute("background","none");
+ player.setAttribute("control-panel","none");
+ player.setAttribute("camera-latitude","35");
+ player.setAttribute("camera-longitude","30");
+
+ if(type==="OLL")player.setAttribute("experimental-stickering","OLL");
+ if(type==="PLL")player.setAttribute("experimental-stickering","PLL");
+
+ if(large){
+  holder.style.width="230px";
+  holder.style.height="190px";
+  player.style.width="230px";
+  player.style.height="190px";
+ }
+
+ holder.appendChild(player);
+ return holder;
+}
+
+/* CHECKLISTS */
+function buildChecklist(type){
+ let cases=type==="PLL"?PLL:OLL;
+ let container=document.getElementById(type.toLowerCase()+"List");
+ container.innerHTML="";
+
+ cases.forEach(([name,alg])=>{
+  let label=document.createElement("label");
+  label.className="case";
+
+  let check=document.createElement("input");
+  check.type="checkbox";
+  check.checked=known[type].includes(name);
+
+  check.onchange=()=>{
+   if(check.checked&&!known[type].includes(name))known[type].push(name);
+   else known[type]=known[type].filter(x=>x!==name);
+   saveKnown();
+  };
+
+  let span=document.createElement("span");
+  span.textContent=name;
+
+  let diagram=createCaseDiagram(type,alg);
+  label.append(check,span,diagram);
+  container.appendChild(label);
+ });
+}
+
+function updateCounts(){
+ document.getElementById("pllCount").textContent=known.PLL.length+" / 21 known";
+ document.getElementById("ollCount").textContent=known.OLL.length+" / 57 known";
+}
+
+/* TRAINER */
+function clearTrainer(){
+ document.getElementById("setup").textContent="";
+ document.getElementById("algorithm").textContent="";
+ document.getElementById("trainerDiagram").innerHTML="";
+}
+
+function changeTrainerType(){
+ currentCase=null;
+ clearTrainer();
+ document.getElementById("trainerMessage").textContent="Press New Case to begin.";
+}
+
+function newCase(){
+ let type=document.getElementById("trainerType").value;
+ let all=type==="PLL"?PLL:OLL;
+ let available=all.filter(item=>known[type].includes(item[0]));
+
+ if(!available.length){
+  currentCase=null;
+  clearTrainer();
+  document.getElementById("trainerMessage").textContent=
+   "You haven't checked any "+type+" algorithms yet. Tick the ones you know in the checklist below.";
+  return;
+ }
+
+ currentCase=available[Math.floor(Math.random()*available.length)];
+ let setup=invertAlgorithm(currentCase[1]);
+
+ document.getElementById("trainerMessage").textContent="Solve this "+type+" setup:";
+ document.getElementById("setup").textContent=setup;
+ document.getElementById("algorithm").textContent="";
+
+ let diagram=document.getElementById("trainerDiagram");
+ diagram.innerHTML="";
+ diagram.appendChild(createCaseDiagram(type,currentCase[1],true));
+
+ currentCase.setup=setup;
+}
+
+function revealAlgorithm(){
+ if(!currentCase){alert("Press New Case first.");return}
+ document.getElementById("algorithm").textContent=
+  currentCase[0]+" — "+currentCase[1];
+}
+
+function copySetup(){
+ if(!currentCase){alert("Press New Case first.");return}
+ navigator.clipboard.writeText(currentCase.setup)
+ .then(()=>document.getElementById("trainerMessage").textContent="Setup copied!")
+ .catch(()=>document.getElementById("trainerMessage").textContent="Copy wasn't available in this browser.");
+}
+
+/* KEYBOARD TIMER */
+document.addEventListener("keydown",e=>{
+ if(e.code==="Space"&&!["INPUT","BUTTON","SELECT"].includes(document.activeElement.tagName)){
+  e.preventDefault();
+  if(state==="ready")startInspection();
+  else if(state==="inspection")startSolve();
+  else if(state==="solving")stopSolve();
+ }
+});
+
+/* 3D CUBE */
+const cube=document.getElementById("cube");
+let dragging=false,lastX=0,lastY=0,rotX=-25,rotY=-35;
+
+cube.addEventListener("pointerdown",e=>{
+ dragging=true;
+ lastX=e.clientX;
+ lastY=e.clientY;
+ cube.setPointerCapture(e.pointerId);
+});
+
+cube.addEventListener("pointermove",e=>{
+ if(!dragging)return;
+ rotY+=(e.clientX-lastX)*.7;
+ rotX-=(e.clientY-lastY)*.7;
+ lastX=e.clientX;
+ lastY=e.clientY;
+ cube.style.transform=`rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+});
+
+cube.addEventListener("pointerup",()=>dragging=false);
+cube.addEventListener("pointercancel",()=>dragging=false);
+
+const colours=["#ffffff","#ffff00","#ff0000","#ff8800","#00aaff","#00cc55"];
+document.querySelectorAll(".face").forEach((face,i)=>{
+ for(let j=0;j<9;j++){
+  let sticker=document.createElement("div");
+  sticker.style.background=colours[i];
+  face.appendChild(sticker);
+ }
+});
+
+/* START */
+buildChecklist("PLL");
+buildChecklist("OLL");
+updateCounts();
+newScramble();
+updateStats();
+</script>
+</body>
+</html>

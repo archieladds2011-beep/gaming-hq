@@ -1,0 +1,356 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gaming HQ | Chess Arena</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#101014;color:white;font-family:Arial;text-align:center}
+header{padding:20px;background:#191920;border-bottom:1px solid #333}
+a{color:#c084fc;text-decoration:none}
+main{padding:18px 10px}
+h1{color:#c084fc}
+.panel{background:#191920;padding:15px;border-radius:12px;max-width:540px;margin:12px auto}
+select,button{padding:11px;border-radius:7px;border:1px solid #444;background:#252530;color:white;margin:5px}
+button{background:#9333ea;border:0;cursor:pointer;font-weight:bold}
+button:hover{background:#7e22ce}
+button:disabled{opacity:.4;cursor:not-allowed}
+#board{display:grid;grid-template-columns:repeat(8,1fr);width:min(94vw,520px);margin:15px auto;border:4px solid #393943}
+.square{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:clamp(25px,8vw,57px);cursor:pointer;position:relative;user-select:none}
+.light{background:#e5d5bd}
+.dark{background:#72513e}
+.white{color:#fff;text-shadow:1px 1px 3px #111}
+.black{color:#151515;text-shadow:0 0 2px white}
+.selected{background:#a855f7!important}
+.possible:after{content:"";position:absolute;width:24%;height:24%;border-radius:50%;background:#166534aa}
+.capture{outline:4px solid #166534;outline-offset:-5px}
+#status{color:#c084fc;font-weight:bold;font-size:17px}
+#history{max-height:150px;overflow:auto;text-align:left;line-height:1.8}
+#moves{color:#ddd}
+#difficultyBox{margin-top:12px}
+</style>
+</head>
+<body>
+
+<header>
+<a href="index.html">← Back to Gaming HQ</a>
+<h1>♟ CHESS ARENA</h1>
+<p>Play. Improve. Dominate.</p>
+</header>
+
+<main>
+<div class="panel">
+<label>Game mode:
+<select id="mode">
+<option value="ai">Play against AI</option>
+<option value="local">2-player local</option>
+</select>
+</label>
+
+<div id="difficultyBox">
+<label>AI difficulty:
+<select id="difficulty">
+<option value="1">Beginner</option>
+<option value="2">Easy</option>
+<option value="3">Medium</option>
+<option value="4">Hard</option>
+<option value="5">Expert</option>
+</select>
+</label>
+</div>
+</div>
+
+<div id="status">Loading chess...</div>
+<div id="board"></div>
+
+<div class="panel">
+<button id="undo">Undo</button>
+<button id="restart">New game</button>
+</div>
+
+<div class="panel">
+<strong>Move history</strong>
+<div id="history"><p id="moves">No moves yet.</p></div>
+</div>
+
+<div id="promotionBox" class="panel" hidden>
+<strong>Choose promotion:</strong><br>
+<button data-piece="q">Queen</button>
+<button data-piece="r">Rook</button>
+<button data-piece="b">Bishop</button>
+<button data-piece="n">Knight</button>
+</div>
+</main>
+
+<script>
+const symbols={
+K:"♔",Q:"♕",R:"♖",B:"♗",N:"♘",P:"♙",
+k:"♚",q:"♛",r:"♜",b:"♝",n:"♞",p:"♟"
+};
+
+const values={p:100,n:320,b:330,r:500,q:900,k:0};
+const game=new Chess();
+
+let selected=null;
+let possible=[];
+let busy=false;
+let pendingPromotion=null;
+
+const boardElement=document.getElementById("board");
+const statusElement=document.getElementById("status");
+const historyElement=document.getElementById("moves");
+const modeElement=document.getElementById("mode");
+const difficultyElement=document.getElementById("difficulty");
+
+function mode(){return modeElement.value;}
+
+function render(){
+boardElement.innerHTML="";
+const board=game.board();
+
+board.forEach((row,r)=>{
+row.forEach((piece,c)=>{
+const square=document.createElement("div");
+square.className="square "+((r+c)%2?"dark":"light");
+const name="abcdefgh"[c]+(8-r);
+
+if(selected===name)square.classList.add("selected");
+
+if(piece){
+square.textContent=symbols[piece.color==="w"?piece.type.toUpperCase():piece.type];
+square.classList.add(piece.color==="w"?"white":"black");
+}
+
+if(possible.some(m=>m.to===name)){
+if(piece)square.classList.add("capture");
+else square.classList.add("possible");
+}
+
+square.onclick=()=>clickSquare(name);
+boardElement.appendChild(square);
+});
+});
+
+updateStatus();
+updateHistory();
+}
+
+function updateStatus(){
+if(game.in_checkmate()){
+statusElement.textContent="CHECKMATE! "+(game.turn()==="w"?"Black":"White")+" wins!";
+}else if(game.in_draw()){
+statusElement.textContent="Draw!";
+}else if(busy){
+statusElement.textContent="AI is thinking...";
+}else{
+statusElement.textContent=(game.turn()==="w"?"White":"Black")+" to move"+(game.in_check()?" — CHECK!":"");
+}
+}
+
+function updateHistory(){
+const moves=game.history();
+if(!moves.length){
+historyElement.textContent="No moves yet.";
+return;
+}
+let result="";
+for(let i=0;i<moves.length;i+=2){
+result+=(Math.floor(i/2)+1)+". "+moves[i]+" "+(moves[i+1]||"")+"   ";
+}
+historyElement.textContent=result;
+}
+
+function clickSquare(square){
+if(busy||game.game_over()||pendingPromotion)return;
+if(mode()==="ai"&&game.turn()==="b")return;
+
+if(selected&&possible.some(m=>m.to===square)){
+const choices=possible.filter(m=>m.to===square);
+
+if(choices.some(m=>m.promotion)){
+pendingPromotion={from:selected,to:square};
+document.getElementById("promotionBox").hidden=false;
+return;
+}
+makeMove(selected,square);
+return;
+}
+
+const piece=game.get(square);
+
+if(piece&&piece.color===game.turn()){
+selected=square;
+possible=game.moves({square:square,verbose:true});
+}else{
+selected=null;
+possible=[];
+}
+render();
+}
+
+function makeMove(from,to,promotion="q"){
+const move=game.move({from,to,promotion});
+if(!move)return;
+
+selected=null;
+possible=[];
+pendingPromotion=null;
+document.getElementById("promotionBox").hidden=true;
+render();
+
+if(mode()==="ai"&&!game.game_over()&&game.turn()==="b"){
+busy=true;
+render();
+setTimeout(makeAiMove,100);
+}
+}
+
+document.querySelectorAll("[data-piece]").forEach(button=>{
+button.onclick=()=>{
+if(!pendingPromotion)return;
+const p=pendingPromotion;
+makeMove(p.from,p.to,button.dataset.piece);
+};
+});
+
+function evaluate(position,aiColor){
+if(position.in_checkmate())return position.turn()===aiColor?-100000:100000;
+if(position.game_over())return 0;
+
+let score=0;
+const board=position.board();
+
+for(let r=0;r<8;r++){
+for(let c=0;c<8;c++){
+const piece=board[r][c];
+if(!piece)continue;
+
+let value=values[piece.type];
+
+const centre=3.5-(Math.abs(3.5-r)+Math.abs(3.5-c))/2;
+if(piece.type==="n"||piece.type==="b")value+=centre*9;
+if(piece.type==="p")value+=(piece.color==="w"?(6-r):(r-1))*5;
+
+score+=(piece.color===aiColor?value:-value);
+}
+}
+return score;
+}
+
+function search(position,depth,alpha,beta,aiColor){
+if(depth===0||position.game_over()){
+return evaluate(position,aiColor);
+}
+
+const moves=position.moves({verbose:true});
+moves.sort((a,b)=>(b.captured?1:0)-(a.captured?1:0));
+
+const maximizing=position.turn()===aiColor;
+
+if(maximizing){
+let best=-Infinity;
+for(const move of moves){
+const copy=new Chess(position.fen());
+copy.move({from:move.from,to:move.to,promotion:move.promotion||"q"});
+best=Math.max(best,search(copy,depth-1,alpha,beta,aiColor));
+alpha=Math.max(alpha,best);
+if(beta<=alpha)break;
+}
+return best;
+}else{
+let best=Infinity;
+for(const move of moves){
+const copy=new Chess(position.fen());
+copy.move({from:move.from,to:move.to,promotion:move.promotion||"q"});
+best=Math.min(best,search(copy,depth-1,alpha,beta,aiColor));
+beta=Math.min(beta,best);
+if(beta<=alpha)break;
+}
+return best;
+}
+}
+
+function makeAiMove(){
+if(game.game_over()){
+busy=false;
+render();
+return;
+}
+
+const level=Number(difficultyElement.value);
+const depth=[1,1,2,2,3,3][level];
+const moves=game.moves({verbose:true});
+let best=-Infinity;
+let candidates=[];
+
+for(const move of moves){
+const copy=new Chess(game.fen());
+copy.move({from:move.from,to:move.to,promotion:move.promotion||"q"});
+
+let score=search(copy,depth-1,-Infinity,Infinity,"b");
+
+if(level<=2)score+=Math.random()*100;
+
+if(score>best){
+best=score;
+candidates=[move];
+}else if(score===best){
+candidates.push(move);
+}
+}
+
+if(candidates.length){
+const chosen=candidates[Math.floor(Math.random()*candidates.length)];
+game.move({from:chosen.from,to:chosen.to,promotion:chosen.promotion||"q"});
+}
+
+busy=false;
+render();
+}
+
+function newGame(){
+game.reset();
+selected=null;
+possible=[];
+busy=false;
+pendingPromotion=null;
+document.getElementById("promotionBox").hidden=true;
+render();
+}
+
+function undo(){
+if(busy||pendingPromotion)return;
+if(!game.history().length)return;
+
+game.undo();
+
+if(mode()==="ai"&&game.history().length){
+game.undo();
+}
+
+selected=null;
+possible=[];
+render();
+}
+
+document.getElementById("restart").onclick=newGame;
+document.getElementById("undo").onclick=undo;
+
+modeElement.onchange=()=>{
+document.getElementById("difficultyBox").hidden=mode()==="local";
+newGame();
+};
+
+difficultyElement.onchange=newGame;
+
+if(typeof Chess==="undefined"){
+statusElement.textContent="Chess library failed to load. Check your internet connection.";
+}else{
+render();
+}
+</script>
+</body>
+</html>
